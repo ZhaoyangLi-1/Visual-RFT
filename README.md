@@ -18,7 +18,7 @@
     ·
      <a href="https://myownskyw7.github.io/"><strong>Jiaqi Wang</strong></a>
   </p>
-<!--   <h2 align="center">Accepted By ICLR 2025!</h2> -->
+  <h2 align="center">Accepted By ICCV 2025!</h2>
 <!-- 🏠<a href="https://liuziyu77.github.io/MIA-DPO/">Homepage</a></h3>| -->
   📖<a href="https://arxiv.org/abs/2503.01785">Paper</a> |
   🤗<a href="https://huggingface.co/collections/laolao77/virft-datasets-67bc271b6f2833eccc0651df">Datasets</a> | 🤗<a href="https://huggingface.co/papers/2503.01785">Daily Paper</a></h3>
