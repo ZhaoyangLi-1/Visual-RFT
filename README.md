@@ -262,6 +262,14 @@ We also present some inference cases of the model when handling *fine-grained cl
   journal={arXiv preprint arXiv:2503.01785},
   year={2025}
 }
+@article{Liu2025VisualAR,
+  title={Visual Agentic Reinforcement Fine-Tuning},
+  author={Ziyu Liu and Yuhang Zang and Yushan Zou and Zijian Liang and Xiao-wen Dong and Yuhang Cao and Haodong Duan and Dahua Lin and Jiaqi Wang},
+  journal={ArXiv},
+  year={2025},
+  volume={abs/2505.14246},
+  url={https://api.semanticscholar.org/CorpusID:278768722}
+}
 ```
 
 ## 📄 License
