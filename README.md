@@ -25,7 +25,7 @@
 <div align="center"></div>
 <p align="center">
   <p>
-🌈We introduce <strong>Visual Reinforcement Fine-tuning (Visual-RFT)</strong>, the first comprehensive adaptation of <strong>Deepseek-R1's RL strategy</strong> to the <strong>multimodal field</strong>. We use the Qwen2-VL-2/7B model as our base model and design a <strong>rule-based verifiable reward</strong>, which is integrated into a <strong>GRPO-based reinforcement fine-tuning framework</strong> to enhance the performance of LVLMs across various visual perception tasks. <strong>ViRFT</strong> extends R1's reasoning capabilities to multiple visual perception tasks, including various detection tasks like <strong>Open Vocabulary Detection, Few-shot Detection, Reasoning Grounding, and Fine-grained Image Classification</strong>.
+🌈We introduce <strong>Visual Reinforcement Fine-tuning (Visual-RFT)</strong>, the first comprehensive adaptation of <strong>Deepseek-R1's RL strategy</strong> to the <strong>multimodal field</strong>. The framework now supports the full <strong>Qwen2 / Qwen2.5 / Qwen3-VL</strong> family as base models and provides a <strong>rule-based verifiable reward</strong>, integrated into a <strong>GRPO-based reinforcement fine-tuning workflow</strong> to enhance LVLMs across various visual perception tasks. <strong>ViRFT</strong> extends R1's reasoning capabilities to multiple visual perception tasks, including various detection tasks like <strong>Open Vocabulary Detection, Few-shot Detection, Reasoning Grounding, and Fine-grained Image Classification</strong>.
   </p>
 <!--     <a href="">
       <img src="assets/teaser.png" alt="Logo" width="100%"> 
@@ -37,7 +37,7 @@
 </a>
 
 ## 🔥🔥🔥 Visual-RFT: Visual Reinforcement Fine-Tuning
-We introduce *Visual Reinforcement Fine-tuning (Visual-RFT)*, the first comprehensive adaptation of Deepseek-R1’s RL strategy to the multimodal field. We use the Qwen2-VL-2/7B model as our base model and design a rule-based verifiable reward, which is integrated into a GRPO-based reinforcement fine-tuning framework to enhance the performance of LVLMs across various visual perception tasks.
+We introduce *Visual Reinforcement Fine-tuning (Visual-RFT)*, the first comprehensive adaptation of Deepseek-R1’s RL strategy to the multimodal field. Visual-RFT now works seamlessly with the Qwen2, Qwen2.5, and Qwen3-VL series and pairs them with a rule-based verifiable reward that is integrated into a GRPO-based reinforcement fine-tuning framework to enhance the performance of LVLMs across various visual perception tasks.
 
 📖<a href="https://arxiv.org/abs/2503.01785">Paper</a> | 🤗<a href="https://huggingface.co/collections/laolao77/virft-datasets-67bc271b6f2833eccc0651df">Datasets</a> | 🤗<a href="https://huggingface.co/papers/2503.01785">Daily Paper</a>
 
@@ -48,6 +48,7 @@ Our new work *Visual Agentic Reinforcement Fine-Tuning (Visual-ARFT)* is designe
 
 
 ## 📢 News
+- 🚀 [10/18/2025] Visual-RFT now supports fine-tuning **Qwen3-VL** dense and MoE checkpoints out of the box.
 - 🚀 [06/26/2025] Our paper **Visual-RFT** is accepted by ICCV 2025!
 - 🚀 [05/21/2025] We support both **HuggingFace Dataset** format and **JSON** file format as input datasets for training.
 - 🚀 [05/21/2025] We updata the trainer of **Visual-RFT** to support both Qwen2-VL and Qwen2.5-VL. And we support multi-image inputs with `grpo_trainer_mp.py`.
@@ -120,6 +121,9 @@ export LOG_PATH="./debug_log_2b_GRPO_coco_base65cate_6k.txt"
 
 export DATA_PATH=./share_data/ViRFT_COCO_base65   ### your local dataset downloading from huggingface
 export CKPT_PATH=./share_models/Qwen2-VL-2B-Instruct    ### Qwen2-VL-2B checkpoint path
+# Alternative examples:
+# export CKPT_PATH=Qwen/Qwen3-VL-8B-Instruct         ### dense Qwen3-VL
+# export CKPT_PATH=Qwen/Qwen3-VL-30B-A3B-Instruct    ### MoE Qwen3-VL (auto-detected)
 export SAVE_PATH=./share_models/Qwen2-VL-2B-Instruct_GRPO_coco_base65cate_6k    ### save path
 
 torchrun --nproc_per_node="8" \
@@ -147,6 +151,8 @@ torchrun --nproc_per_node="8" \
     --save_only_model true \
     --num_generations 8 '
 ```
+
+> ✅ The trainers automatically detect whether the checkpoint corresponds to Qwen2, Qwen2.5, or Qwen3-VL (including MoE variants) and select the correct model class and image processor settings.
 
 ### OOM Tips 
 ⏰ Running into OOM (Out-Of-Memory) issues during training is quite common, especially when using GPUs with limited memory. 
@@ -279,10 +285,6 @@ License: Attribution-NonCommercial 4.0 International It should abide by the poli
 
 ## Acknowledgement
 We sincerely thank projects <a href="https://github.com/Deep-Agent/R1-V">R1-V</a>, <a href="https://github.com/huggingface/open-r1">Open-R1</a>, and <a href="https://github.com/EvolvingLMMs-Lab/open-r1-multimodal">Open-r1-multimodal</a> for providing their open-source resources.
-
-
-
-
 
 
 

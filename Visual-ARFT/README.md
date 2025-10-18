@@ -43,6 +43,7 @@ Models (LVLMs). With Visual-ARFT, open-source LVLMs gain the ability to browse w
 </a>  -->
 
 ## 📢 News
+- 🚀 [10/18/2025] Visual-ARFT training scripts now support fine-tuning **Qwen3-VL** dense and MoE checkpoints in addition to Qwen2 / Qwen2.5.
 - 🚀 [05/20/2025] We release our model, datasets, and MAT benchmark on huggingface 🤗<a href="https://huggingface.co/collections/laolao77/visual-arft-682c601d0e35ac6470adfe9f">Huggingface Collection</a>.
 - 🚀 [05/20/2025] We release our training and evaluation code.
 - 🚀 [05/20/2025] We release **Viual-ARFT** repository.
@@ -77,7 +78,7 @@ bash setup.sh
 ```
 > 📌 Please note that the required **training environment** setup is the same as that of *Visual-RFT*. If you're already familiar with the *Visual-RFT* environment, you can directly train based on that setup.
 > 
-> 📌 If you only need to perform **inference** or **evaluation**, any environment that supports running Qwen2.5-VL will be sufficient.
+> 📌 If you only need to perform **inference** or **evaluation**, any environment that supports running Qwen2-VL, Qwen2.5-VL, or Qwen3-VL checkpoints will be sufficient.
 
 ## Inference
 We have uploaded the model trained for Agentic Search (<a href="https://huggingface.co/laolao77/Visual-ARFT-Search">🤗Model</a>) and Agentic Coding (<a href="https://huggingface.co/laolao77/Visual-ARFT-Coding">🤗Model</a>). You can use it to try our demos in `demo`. For more details, please refer to `demo/README`.
@@ -99,6 +100,7 @@ The following script is an example for training the *Agentic Search* model. Runn
 export DEBUG_MODE="true" # Enable Debug if you want to see the rollout of model during RL
 export LOG_PATH="./log_qwen25vl_7b_grpo_agent_search_data20_63_gpu8.txt"
 
+# Replace the checkpoint below with e.g. Qwen/Qwen3-VL-8B-Instruct or Qwen/Qwen3-VL-30B-A3B-Instruct; the trainers auto-detect dense vs. MoE.
 torchrun --nproc_per_node="8" \
     --nnodes="1" \
     --node_rank="0" \
@@ -120,10 +122,11 @@ torchrun --nproc_per_node="8" \
     --max_pixels 401408 \
     --num_train_epochs 400 \
     --run_name Qwen25-VL-7B-GRPO-Agent-Search-data20-63-gpu8 \
-    --save_steps 100 \
-    --save_only_model true \
-    --num_generations 8
+--save_steps 100 \
+--save_only_model true \
+--num_generations 8
 ```
+> ✅ The Visual-ARFT trainers automatically recognise Qwen2, Qwen2.5, and Qwen3-VL checkpoints (dense or MoE) and load the matching model classes and processors.
 ### OOM Tips 
 ⏰ Running into OOM (Out-Of-Memory) issues during training is quite common, especially when using GPUs with limited memory. 
 
@@ -169,10 +172,6 @@ Your support means a lot to us and encourages our continued efforts in open rese
 
 ## Acknowledgement
 We sincerely thank projects <a href="https://github.com/Deep-Agent/R1-V">R1-V</a>, <a href="https://github.com/huggingface/open-r1">Open-R1</a>, and <a href="https://github.com/EvolvingLMMs-Lab/open-r1-multimodal">Open-r1-multimodal</a> for providing their open-source resources.
-
-
-
-
 
 
 

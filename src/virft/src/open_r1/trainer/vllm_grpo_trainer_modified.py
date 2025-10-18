@@ -37,6 +37,8 @@ from transformers import (
     PreTrainedTokenizerBase,
     Qwen2VLForConditionalGeneration,
     Qwen2_5_VLForConditionalGeneration,
+    Qwen3VLForConditionalGeneration,
+    Qwen3VLMoeForConditionalGeneration,
     Trainer,
     TrainerCallback,
     is_wandb_available,
@@ -115,6 +117,8 @@ class Qwen2VLGRPOVLLMTrainerModified(Trainer):
         model_init_kwargs["attn_implementation"] = attn_implementation
         if isinstance(model, str):
             model_id = model
+            model_id_lower = model_id.lower()
+            model_basename = model_id.rstrip("/").split("/")[-1].lower()
             torch_dtype = model_init_kwargs.get("torch_dtype")
             if (
                 isinstance(torch_dtype, torch.dtype)
@@ -136,15 +140,24 @@ class Qwen2VLGRPOVLLMTrainerModified(Trainer):
                 if args.gradient_checkpointing
                 else model_init_kwargs.get("use_cache")
             )
-            if "Qwen2-VL" in model_id:
-                model = Qwen2VLForConditionalGeneration.from_pretrained(
-                    model, **model_init_kwargs
-                )
-            elif "Qwen2.5-VL" in model_id:
+            if "qwen3-vl" in model_id_lower:
+                if "-a" in model_basename:
+                    model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
+                        model, **model_init_kwargs
+                    )
+                else:
+                    model = Qwen3VLForConditionalGeneration.from_pretrained(
+                        model, **model_init_kwargs
+                    )
+            elif "qwen2.5-vl" in model_id_lower:
                 model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     model, **model_init_kwargs
                 )
-            elif "Aria" in model_id:
+            elif "qwen2-vl" in model_id_lower:
+                model = Qwen2VLForConditionalGeneration.from_pretrained(
+                    model, **model_init_kwargs
+                )
+            elif "aria" in model_id_lower:
                 model_init_kwargs.pop("use_cache")
                 model = AriaForConditionalGeneration.from_pretrained(
                     model, **model_init_kwargs
@@ -153,6 +166,8 @@ class Qwen2VLGRPOVLLMTrainerModified(Trainer):
                 model = AutoModelForCausalLM.from_pretrained(model, **model_init_kwargs)
         else:
             model_id = model.config._name_or_path
+            model_id_lower = model_id.lower()
+            model_basename = model_id.rstrip("/").split("/")[-1].lower()
             if args.model_init_kwargs is not None:
                 raise ValueError(
                     "You passed `model_init_kwargs` to the `GRPOConfig`, but your model is already instantiated. "
@@ -163,16 +178,26 @@ class Qwen2VLGRPOVLLMTrainerModified(Trainer):
             model = get_peft_model(model, peft_config)
 
         # Reference model
+        model_basename = model_id.rstrip("/").split("/")[-1].lower()
         if is_deepspeed_zero3_enabled():
-            if "Qwen2-VL" in model_id:
+            if "qwen3-vl" in model_id_lower:
+                if "-a" in model_basename:
+                    self.ref_model = Qwen3VLMoeForConditionalGeneration.from_pretrained(
+                        model_id, **model_init_kwargs
+                    )
+                else:
+                    self.ref_model = Qwen3VLForConditionalGeneration.from_pretrained(
+                        model_id, **model_init_kwargs
+                    )
+            elif "qwen2.5-vl" in model_id_lower:
+                self.ref_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_id, **model_init_kwargs
+                )
+            elif "qwen2-vl" in model_id_lower:
                 self.ref_model = Qwen2VLForConditionalGeneration.from_pretrained(
                     model_id, **model_init_kwargs
                 )
-            elif "Qwen2.5-VL" in model_id:
-                self.ref_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                    model, **model_init_kwargs
-                )
-            elif "Aria" in model_id:
+            elif "aria" in model_id_lower:
                 self.ref_model = AriaForConditionalGeneration.from_pretrained(
                     model_id, **model_init_kwargs
                 )
@@ -190,12 +215,14 @@ class Qwen2VLGRPOVLLMTrainerModified(Trainer):
 
         # Processing class
         if processing_class is None:
-            if "Qwen" in model_id or "Aria" in model_id:
+            if any(
+                tag in model_id_lower for tag in ("qwen3-vl", "qwen2.5-vl", "qwen2-vl", "aria")
+            ):
                 processing_class = AutoProcessor.from_pretrained(model_id)
                 pad_token_id = processing_class.tokenizer.pad_token_id
                 processing_class.pad_token_id = pad_token_id
                 processing_class.eos_token_id = processing_class.tokenizer.eos_token_id
-                if "Qwen" in model_id:
+                if "qwen" in model_id_lower:
                     processing_class.image_processor.max_pixels = max_pixels
                     processing_class.image_processor.min_pixels = min_pixels
             else:
