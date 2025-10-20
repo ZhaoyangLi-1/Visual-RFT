@@ -50,7 +50,6 @@ _deps = [
     "einops>=0.8.0",
     "flake8>=6.0.0",
     "hf_transfer>=0.1.4",
-    "huggingface-hub[cli]>=0.19.2,<1.0",
     "isort>=5.12.0",
     "liger_kernel==0.5.2",
     "lighteval @ git+https://github.com/huggingface/lighteval.git@4f381b352c0e467b5870a97d41cb66b487a2c503#egg=lighteval[math]",
@@ -61,7 +60,6 @@ _deps = [
     "safetensors>=0.3.3",
     "sentencepiece>=0.1.99",
     "torch>=2.5.1",
-    "transformers @ git+https://github.com/huggingface/transformers.git@main",
     "trl @ git+https://github.com/huggingface/trl.git@main",
     "vllm==0.6.6.post1",
     "wandb>=0.19.1",
@@ -96,12 +94,12 @@ install_requires = [
     deps["datasets"],
     deps["deepspeed"],
     deps["hf_transfer"],
-    deps["huggingface-hub"],
+    # deps["huggingface-hub"],
     deps["liger_kernel"],
     deps["packaging"],  # utilities from PyPA to e.g., compare versions
     deps["safetensors"],
     deps["sentencepiece"],
-    deps["transformers"],
+    # deps["transformers"],
     deps["trl"],
 ]
 
