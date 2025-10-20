@@ -1,14 +1,16 @@
+pip uninstall -y transformers huggingface-hub
+pip install "transformers>=4.51.0,<5.0" "huggingface-hub>=0.23,<1.0"
 cd src/virft
 pip install -e ".[dev]"
 
-# Addtional modules
-pip install wandb==0.18.3
+# Additional modules
+pip install wandb
 pip install tensorboardx
 pip install qwen_vl_utils torchvision
-pip install flash-attn --no-build-isolation
 
-# vLLM support 
-pip install vllm==0.7.2
+pip uninstall -y torch torchvision torchaudio
 
-# Ensure transformers includes Qwen3-VL support
-pip install -U git+https://github.com/huggingface/transformers.git@main
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118
+
+pip install -v flash-attn --no-build-isolation
+
