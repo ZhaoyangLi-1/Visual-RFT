@@ -1,0 +1,100 @@
+{
+  "os": "Linux-6.8.0-71-generic-x86_64-with-glibc2.35",
+  "python": "CPython 3.10.18",
+  "startedAt": "2025-10-21T04:16:10.062330Z",
+  "args": [
+    "--output_dir",
+    "/linting-slow-vol/models/trained_Qwen3-VL-4B-Instruct",
+    "--model_name_or_path",
+    "/linting-slow-vol/models/Qwen3-VL-4B-Instruct",
+    "--dataset_name",
+    "/linting-slow-vol/Visual-RFT/dataset/oric_train_data_dataset",
+    "--deepspeed",
+    "/linting-slow-vol/Visual-RFT/src/virft/local_scripts/zero3.json",
+    "--max_prompt_length",
+    "1024",
+    "--per_device_train_batch_size",
+    "1",
+    "--gradient_accumulation_steps",
+    "2",
+    "--logging_steps",
+    "1",
+    "--fp16",
+    "--report_to",
+    "wandb",
+    "--gradient_checkpointing",
+    "false",
+    "--attn_implementation",
+    "eager",
+    "--max_pixels",
+    "401408",
+    "--num_train_epochs",
+    "1",
+    "--run_name",
+    "Qwen3-VL-4B_GRPO_oric",
+    "--save_steps",
+    "100",
+    "--save_only_model",
+    "true",
+    "--num_generations",
+    "8",
+    "--image_root",
+    "/linting-slow-vol/dataset/coco/train2014"
+  ],
+  "program": "/linting-slow-vol/Visual-RFT/src/virft/src/open_r1/grpo.py",
+  "codePath": "src/virft/src/open_r1/grpo.py",
+  "codePathLocal": "src/virft/src/open_r1/grpo.py",
+  "git": {
+    "remote": "https://github.com/ZhaoyangLi-1/Visual-RFT.git",
+    "commit": "fa5b77772ece415d9643bb4712fefb7e2f99469b"
+  },
+  "email": "lijefrrey@gmail.com",
+  "root": "/linting-slow-vol/Visual-RFT",
+  "host": "linting-test-deployment-78d6968689-znslj",
+  "executable": "/root/miniconda3/envs/Visual-RFT/bin/python3.10",
+  "cpu_count": 40,
+  "cpu_count_logical": 80,
+  "gpu": "Tesla V100-SXM2-32GB",
+  "gpu_count": 4,
+  "disk": {
+    "/": {
+      "total": "5665248239616",
+      "used": "1783054675968"
+    }
+  },
+  "memory": {
+    "total": "540888043520"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "Tesla V100-SXM2-32GB",
+      "memoryTotal": "34359738368",
+      "cudaCores": 5120,
+      "architecture": "Volta",
+      "uuid": "GPU-230e1006-23fa-30a6-c648-aedcacae0a9c"
+    },
+    {
+      "name": "Tesla V100-SXM2-32GB",
+      "memoryTotal": "34359738368",
+      "cudaCores": 5120,
+      "architecture": "Volta",
+      "uuid": "GPU-d7493dce-05e9-31ee-4e75-bb2da7696806"
+    },
+    {
+      "name": "Tesla V100-SXM2-32GB",
+      "memoryTotal": "34359738368",
+      "cudaCores": 5120,
+      "architecture": "Volta",
+      "uuid": "GPU-a14e01bb-8e7f-f90c-722c-33ee2afcb245"
+    },
+    {
+      "name": "Tesla V100-SXM2-32GB",
+      "memoryTotal": "34359738368",
+      "cudaCores": 5120,
+      "architecture": "Volta",
+      "uuid": "GPU-54b0b63a-e3a3-4312-0838-67ade3544239"
+    }
+  ],
+  "cudaVersion": "13.0",
+  "writerId": "y9jebbz0bk2khhvhk65h70a9dox0iq2q"
+}

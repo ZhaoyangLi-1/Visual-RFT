@@ -1,0 +1,15 @@
+2025-10-21 03:14:43,377 INFO    MainThread:108611 [wandb_setup.py:_flush():81] Current SDK version is 0.22.2
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_setup.py:_flush():81] Configure stats pid to 108611
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_setup.py:_flush():81] Loading settings from /root/.config/wandb/settings
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_setup.py:_flush():81] Loading settings from /linting-slow-vol/Visual-RFT/wandb/settings
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_init.py:setup_run_log_directory():705] Logging user logs to /linting-slow-vol/Visual-RFT/wandb/run-20251021_031443-tl0uo5mn/logs/debug.log
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_init.py:setup_run_log_directory():706] Logging internal logs to /linting-slow-vol/Visual-RFT/wandb/run-20251021_031443-tl0uo5mn/logs/debug-internal.log
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_init.py:init():832] calling init triggers
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_init.py:init():837] wandb.init called with sweep_config: {}
+config: {'_wandb': {}}
+2025-10-21 03:14:43,378 INFO    MainThread:108611 [wandb_init.py:init():880] starting backend
+2025-10-21 03:14:43,593 INFO    MainThread:108611 [wandb_init.py:init():883] sending inform_init request
+2025-10-21 03:14:43,598 INFO    MainThread:108611 [wandb_init.py:init():891] backend started and connected
+2025-10-21 03:14:43,600 INFO    MainThread:108611 [wandb_init.py:init():961] updated telemetry
+2025-10-21 03:14:43,609 INFO    MainThread:108611 [wandb_init.py:init():985] communicating run to backend with 90.0 second timeout

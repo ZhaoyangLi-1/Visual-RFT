@@ -192,6 +192,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                 False if args.gradient_checkpointing else model_init_kwargs.get("use_cache")
             )
             if "qwen3-vl" in model_id_lower:
+                model_init_kwargs.pop("use_cache", None)
                 if "-a" in model_basename:
                     model = Qwen3VLMoeForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
                 else:
@@ -222,6 +223,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         model_basename = model_id.rstrip("/").split("/")[-1].lower()
         if is_deepspeed_zero3_enabled():
             if "qwen3-vl" in model_id_lower:
+                model_init_kwargs.pop("use_cache", None)
                 if "-a" in model_basename:
                     self.ref_model = Qwen3VLMoeForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
                 else:
@@ -373,9 +375,70 @@ class Qwen2VLGRPOTrainer(Trainer):
         if return_outputs:
             raise ValueError("The GRPOTrainer does not support returning outputs")
 
-        prompts = [x["prompt"] for x in inputs]
-        prompts_text = [maybe_apply_chat_template(example, self.processing_class)["prompt"] for example in inputs]
-        images = [x["image"] for x in inputs]
+        prompts = []
+        prompts_text = []
+        flattened_images: list[str] = []
+
+        tokenizer = getattr(self.processing_class, "tokenizer", None)
+        image_token = None
+        if tokenizer is not None and hasattr(tokenizer, "image_token"):
+            image_token = tokenizer.image_token
+        if image_token is None:
+            image_token = getattr(self.processing_class, "image_token", "<|image_pad|>")
+
+        for example in inputs:
+            prompts.append(example["prompt"])
+            rendered_example = maybe_apply_chat_template(example, self.processing_class)
+            rendered_prompt = rendered_example["prompt"]
+            prompts_text.append(rendered_prompt)
+
+            placeholder_count = rendered_prompt.count(image_token) if image_token else 0
+
+            example_images: list[str] = []
+            prompt_structure = example.get("prompt")
+            if isinstance(prompt_structure, list):
+                for message in prompt_structure:
+                    content = message.get("content")
+                    if isinstance(content, list):
+                        for block in content:
+                            if not isinstance(block, dict):
+                                continue
+                            block_type = block.get("type") or block.get("media_type")
+                            if block_type != "image" and "image" not in block:
+                                continue
+                            image_value = block.get("image")
+                            if image_value is None:
+                                image_value = block.get("image_url")
+                                if isinstance(image_value, dict):
+                                    image_value = image_value.get("path") or image_value.get("url")
+                            if isinstance(image_value, list):
+                                example_images.extend(str(val) for val in image_value if val)
+                            elif image_value:
+                                example_images.append(str(image_value))
+
+            if not example_images:
+                fallback_image = example.get("image")
+                if isinstance(fallback_image, list):
+                    example_images.extend(str(val) for val in fallback_image if val)
+                elif fallback_image:
+                    example_images.append(str(fallback_image))
+
+            if placeholder_count == 0:
+                example_images = []
+            elif placeholder_count < len(example_images):
+                example_images = example_images[:placeholder_count]
+            elif placeholder_count > len(example_images):
+                if len(example_images) == 1:
+                    example_images = example_images * placeholder_count
+                else:
+                    raise ValueError(
+                        f"Found {placeholder_count} image placeholder(s) but only {len(example_images)} image path(s) "
+                        "were provided. Please ensure the dataset supplies one image per placeholder."
+                    )
+
+            flattened_images.extend(example_images)
+
+        images = flattened_images if flattened_images else None
         prompt_inputs = self.processing_class(
             text=prompts_text,
             images=images,

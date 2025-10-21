@@ -16,6 +16,7 @@ import os
 import re
 from datetime import datetime
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 from datasets import load_dataset, load_from_disk
@@ -49,6 +50,10 @@ class GRPOScriptArguments(ScriptArguments):
     min_pixels: Optional[int] = field(
         default=3136,
         metadata={"help": "Minimum number of pixels for the image"},
+    )
+    image_root: Optional[str] = field(
+        default=None,
+        metadata={"help": "Optional root directory that contains image files referenced by the dataset."},
     )
 
 def extract_bbox(response):
@@ -394,17 +399,115 @@ def main(script_args, training_args, model_args):
             ],
         }
 
+    script_image_root = script_args.image_root or os.getenv("DATA_IMAGE_ROOT")
+    script_path = Path(__file__).resolve()
+    project_root = script_path.parents[4] if len(script_path.parents) >= 5 else script_path.parent
+    dataset_root = Path(script_args.dataset_name).resolve()
+
+    def _uniq_paths(paths):
+        seen = set()
+        ordered = []
+        for path in paths:
+            if path is None:
+                continue
+            try:
+                resolved = Path(path).resolve()
+            except FileNotFoundError:
+                # Path.resolve(strict=False) not available <3.12, so handle manually
+                resolved = Path(path).absolute()
+            if resolved not in seen and resolved.exists():
+                seen.add(resolved)
+                ordered.append(resolved)
+        return ordered
+
+    candidate_roots = _uniq_paths(
+        [
+            script_image_root,
+            dataset_root,
+            dataset_root.parent,
+            dataset_root.parent / "train2014",
+            dataset_root.parent / "val2014",
+            dataset_root.parent / "images",
+            dataset_root.parent / "coco",
+            dataset_root.parent / "coco" / "train2014",
+            dataset_root.parent / "coco" / "val2014",
+            project_root,
+            project_root / "dataset",
+            project_root / "dataset" / "coco",
+            project_root / "dataset" / "coco" / "train2014",
+            project_root / "dataset" / "coco" / "val2014",
+            project_root.parent,
+            project_root.parent / "dataset",
+            project_root.parent / "dataset" / "coco",
+            project_root.parent / "dataset" / "coco" / "train2014",
+            project_root.parent / "dataset" / "coco" / "val2014",
+        ]
+    )
+    path_cache: dict[str, str] = {}
+    subdir_candidates = [
+        (),
+        ("train2014",),
+        ("val2014",),
+        ("images",),
+        ("coco",),
+        ("coco", "train2014"),
+        ("coco", "val2014"),
+    ]
+
+    def resolve_image_path(image_entry):
+        if image_entry is None:
+            return None
+        if isinstance(image_entry, list):
+            return [resolve_image_path(item) for item in image_entry]
+        if not isinstance(image_entry, str):
+            return image_entry
+
+        if os.path.isabs(image_entry):
+            candidate_path = Path(image_entry)
+            if candidate_path.is_file():
+                resolved = str(candidate_path.resolve())
+                path_cache[image_entry] = resolved
+                return resolved
+
+        if image_entry in path_cache:
+            return path_cache[image_entry]
+
+        for root in candidate_roots:
+            for segments in subdir_candidates:
+                candidate = root.joinpath(*segments, image_entry)
+                if candidate.is_file():
+                    resolved = str(candidate.resolve())
+                    path_cache[image_entry] = resolved
+                    return resolved
+
+        # As a final fallback, attempt a limited recursive search under candidate roots.
+        for root in candidate_roots:
+            try:
+                match = next(root.rglob(image_entry))
+            except StopIteration:
+                match = None
+            if match is not None and match.is_file():
+                resolved = str(match.resolve())
+                path_cache[image_entry] = resolved
+                return resolved
+
+        raise FileNotFoundError(
+            f"Unable to locate image '{image_entry}'. Supply --image_root to point to the directory containing the image files."
+        )
+
     def make_conversation_image(example):
+        resolved_image = resolve_image_path(example["image"])
         return {
             "prompt": [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image"},
+                        {"type": "image", "image": resolved_image},
                         {"type": "text", "text": example["problem"]},
                     ],
                 },
             ],
+            "image": resolved_image,
         }
 
 

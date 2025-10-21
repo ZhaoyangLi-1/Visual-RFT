@@ -1,5 +1,5 @@
-# -------- Base image: CUDA 12.8 + cuDNN + Ubuntu 22.04 --------
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+# -------- Base image: CUDA 11.8 + cuDNN + Ubuntu 22.04 --------
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
@@ -12,15 +12,25 @@ RUN apt-get update && apt-get install -y \
     tmux zip vim libglew-dev libgl1 libglvnd-dev libegl1 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# -------- Miniconda + mamba --------
+# -------- Miniconda --------
 ENV CONDA_DIR=/opt/conda
 RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh \
  && bash ~/miniconda.sh -b -p $CONDA_DIR \
  && rm ~/miniconda.sh
 ENV PATH=$CONDA_DIR/bin:$PATH
 
-RUN conda install -n base -c conda-forge mamba && conda clean -afy
+# -------- 关键：改用 conda-forge，移除 defaults，避免 TOS --------
+RUN conda config --system --remove-key default_channels || true && \
+    conda config --system --add default_channels https://conda.anaconda.org/conda-forge && \
+    conda config --system --remove channels defaults || true && \
+    conda config --system --add channels conda-forge && \
+    conda config --system --set show_channel_urls true && \
+    conda config --system --set channel_priority strict
 
+# 装 mamba（现在只走 conda-forge，不会触发 TOS）
+RUN conda install -n base -y mamba && conda clean -afy
+
+# 建环境
 RUN mamba create -n vrft -y python=3.10 && conda clean -afy
 SHELL ["/bin/bash", "-c"]
 ENV CONDA_DEFAULT_ENV=vrft
@@ -32,11 +42,6 @@ RUN git clone https://github.com/ZhaoyangLi-1/Visual-RFT.git
 
 # -------- Python deps --------
 WORKDIR /root/Visual-RFT
-RUN python -m pip install --no-cache-dir -U pip \
- && python -m pip uninstall -y transformers huggingface-hub || true \
- && python -m pip install --no-cache-dir "transformers>=4.51.0,<5.0" "huggingface-hub>=0.23,<1.0"
-
-# 项目安装
 RUN bash setup.sh
 
 # -------- Default command --------

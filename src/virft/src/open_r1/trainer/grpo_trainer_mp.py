@@ -193,6 +193,7 @@ class Qwen2VLGRPOTrainer_MP(Trainer):
                 False if args.gradient_checkpointing else model_init_kwargs.get("use_cache")
             )
             if "qwen3-vl" in model_id_lower:
+                model_init_kwargs.pop("use_cache", None)
                 if "-a" in model_basename:
                     model = Qwen3VLMoeForConditionalGeneration.from_pretrained(model, **model_init_kwargs)
                 else:
@@ -223,6 +224,7 @@ class Qwen2VLGRPOTrainer_MP(Trainer):
         model_basename = model_id.rstrip("/").split("/")[-1].lower()
         if is_deepspeed_zero3_enabled():
             if "qwen3-vl" in model_id_lower:
+                model_init_kwargs.pop("use_cache", None)
                 if "-a" in model_basename:
                     self.ref_model = Qwen3VLMoeForConditionalGeneration.from_pretrained(model_id, **model_init_kwargs)
                 else:
