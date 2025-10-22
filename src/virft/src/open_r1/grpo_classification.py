@@ -101,9 +101,10 @@ def accuracy_reward(completions, solution, **kwargs):
 def format_reward(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
     pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
+    # pattern = r"^\s*<think>.*?</think>\s*<answer>.*?</answer>\s*$"
     completion_contents = [completion[0]["content"] for completion in completions]
-    # matches = [re.match(pattern, content) for content in completion_contents]
-    matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
+    matches = [re.match(pattern, content) for content in completion_contents]
+    # matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
 
 reward_funcs_registry = {
@@ -137,21 +138,23 @@ def main(script_args, training_args, model_args):
     def make_conversation(example):
         return {
             "prompt": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": example["problem"]},
+                {"role": "system",
+                "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+                {"role": "user",
+                "content": [{"type": "text", "text": example["problem"]}]},
             ],
         }
 
     def make_conversation_image(example):
         return {
             "prompt": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image"},
-                        {"type": "text", "text": example["problem"]},
-                    ],
-                },
+                {"role": "system",
+                "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+                {"role": "user",
+                "content": [
+                    {"type": "image"},  
+                    {"type": "text", "text": example["problem"]},
+                ]},
             ],
         }
 
