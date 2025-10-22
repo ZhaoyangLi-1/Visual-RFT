@@ -1,0 +1,5 @@
+[34m[1mwandb[0m: Detected [huggingface_hub.inference] in use.
+[34m[1mwandb[0m: Use W&B Weave for improved LLM call tracing. Install Weave with `pip install weave` then add `import weave` to the top of your script.
+[34m[1mwandb[0m: For more information, check out the docs at: https://weave-docs.wandb.ai/
+  0%|                                                                                                                                                                                                                                                                  | 0/75 [00:00<?, ?it/s]`generation_config` default values have been modified to match model-specific defaults: {'temperature': 0.7, 'top_k': 20, 'top_p': 0.8, 'eos_token_id': [151645, 151645, 151643]}. If this is not desired, please set these values explicitly.
+Invalidate trace cache @ step 0 and module 1688: cache has only 0 modules

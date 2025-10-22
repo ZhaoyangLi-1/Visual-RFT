@@ -8,7 +8,7 @@ oric = DatasetDict({
     "train": dataset["train"]
 })
 
-save_path = "oric_train_data_dataset"
+save_path = "/ariesdv0/zhaoyang/dataset/oric_train_data_dataset"
 
 oric.save_to_disk(save_path)
 print(f"Dataset saved to {save_path}")
