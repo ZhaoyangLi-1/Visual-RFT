@@ -1,0 +1,20 @@
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_setup.py:_flush():81] Current SDK version is 0.22.2
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_setup.py:_flush():81] Configure stats pid to 144650
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_setup.py:_flush():81] Loading settings from /root/.config/wandb/settings
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_setup.py:_flush():81] Loading settings from /ariesdv0/zhaoyang/Visual-RFT/wandb/settings
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_init.py:setup_run_log_directory():705] Logging user logs to /ariesdv0/zhaoyang/Visual-RFT/wandb/run-20251022_124755-aemhvhwz/logs/debug.log
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_init.py:setup_run_log_directory():706] Logging internal logs to /ariesdv0/zhaoyang/Visual-RFT/wandb/run-20251022_124755-aemhvhwz/logs/debug-internal.log
+2025-10-22 12:47:55,297 INFO    MainThread:144650 [wandb_init.py:init():832] calling init triggers
+2025-10-22 12:47:55,298 INFO    MainThread:144650 [wandb_init.py:init():837] wandb.init called with sweep_config: {}
+config: {'_wandb': {}}
+2025-10-22 12:47:55,298 INFO    MainThread:144650 [wandb_init.py:init():880] starting backend
+2025-10-22 12:47:55,507 INFO    MainThread:144650 [wandb_init.py:init():883] sending inform_init request
+2025-10-22 12:47:55,514 INFO    MainThread:144650 [wandb_init.py:init():891] backend started and connected
+2025-10-22 12:47:55,517 INFO    MainThread:144650 [wandb_init.py:init():961] updated telemetry
+2025-10-22 12:47:55,554 INFO    MainThread:144650 [wandb_init.py:init():985] communicating run to backend with 90.0 second timeout
+2025-10-22 12:47:55,976 INFO    MainThread:144650 [wandb_init.py:init():1036] starting run threads in backend
+2025-10-22 12:47:56,168 INFO    MainThread:144650 [wandb_run.py:_console_start():2509] atexit reg
+2025-10-22 12:47:56,168 INFO    MainThread:144650 [wandb_run.py:_redirect():2357] redirect: wrap_raw
+2025-10-22 12:47:56,168 INFO    MainThread:144650 [wandb_run.py:_redirect():2426] Wrapping output streams.
+2025-10-22 12:47:56,168 INFO    MainThread:144650 [wandb_run.py:_redirect():2449] Redirects installed.
