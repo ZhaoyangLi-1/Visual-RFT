@@ -108,6 +108,7 @@ def format_reward(completions, **kwargs):
     pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
     completion_contents = [completion[0]["content"].strip() for completion in completions]
     matches = [re.search(pattern, content, re.DOTALL) for content in completion_contents]
+    # matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
 
 reward_funcs_registry = {
