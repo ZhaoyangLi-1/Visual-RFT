@@ -99,11 +99,15 @@ def accuracy_reward(completions, solution, **kwargs):
     return rewards
 
 def format_reward(completions, **kwargs):
-    """Reward function that checks if the completion has a specific format."""
+    """Reward function that checks whether the model emits the required tags.
+
+    Be tolerant to leading/trailing text or extra newlines by using a search
+    instead of a full-string match. This avoids always returning 0 when the
+    model adds minor extra text around the tags.
+    """
     pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
-    completion_contents = [completion[0]["content"] for completion in completions]
-    # matches = [re.match(pattern, content) for content in completion_contents]
-    matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
+    completion_contents = [completion[0]["content"].strip() for completion in completions]
+    matches = [re.search(pattern, content, re.DOTALL) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
 
 reward_funcs_registry = {
@@ -143,8 +147,11 @@ def main(script_args, training_args, model_args):
         }
 
     def make_conversation_image(example):
+        # Include the same system instruction as the text-only path so the
+        # model is explicitly asked to output <think>...</think><answer>...</answer>.
         return {
             "prompt": [
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {
                     "role": "user",
                     "content": [
