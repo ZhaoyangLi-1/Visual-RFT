@@ -150,9 +150,14 @@ def main(script_args, training_args, model_args):
     def make_conversation_image(example):
         # Include the same system instruction as the text-only path so the
         # model is explicitly asked to output <think>...</think><answer>...</answer>.
+        # Keep the "content" field as a list of blocks for every message to
+        # avoid mixing list/non-list types when Arrow serializes the dataset.
         return {
             "prompt": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "system",
+                    "content": [{"type": "text", "text": SYSTEM_PROMPT}],
+                },
                 {
                     "role": "user",
                     "content": [

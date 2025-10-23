@@ -399,10 +399,14 @@ def main(script_args, training_args, model_args):
 
     def make_conversation_image(example):
         # Add the system instruction for image prompts so the formatting rule
-        # is explicitly requested from the model.
+        # is explicitly requested from the model. Keep message "content" values
+        # as lists of blocks to avoid mixing different PyArrow types.
         return {
             "prompt": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "system",
+                    "content": [{"type": "text", "text": SYSTEM_PROMPT}],
+                },
                 {
                     "role": "user",
                     "content": [
