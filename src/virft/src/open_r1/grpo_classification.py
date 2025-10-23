@@ -120,9 +120,9 @@ SYSTEM_PROMPT = (
     "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
     "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
     "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively.\n\n"
-    "示例：\n"
-    "User: 2+2 等于多少？\n"
-    "Assistant: <think>我先计算 2+2，结果是 4。</think><answer>4</answer>"
+    "Example: \n"
+    "User: 2+2 equals what?\n"
+    "Assistant: <think>I first calculate 2+2, the result is 4.</think><answer>4</answer>"
 )
 
 
