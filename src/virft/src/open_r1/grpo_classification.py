@@ -17,6 +17,7 @@ import re
 from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional
+import torch
 
 from datasets import load_dataset, load_from_disk
 from transformers import Qwen2VLForConditionalGeneration
@@ -52,60 +53,145 @@ class GRPOScriptArguments(ScriptArguments):
     )
 
 
+# def accuracy_reward(completions, solution, **kwargs):
+#     """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
+#     contents = [completion[0]["content"] for completion in completions]
+#     rewards = []
+#     current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
+#     for content, sol in zip(contents, solution):
+#         reward = 0.0
+#         # Try symbolic verification first
+#         try:
+#             answer = parse(content)
+#             if float(verify(answer, parse(sol))) > 0:
+#                 reward = 1.0
+#         except Exception:
+#             pass  # Continue to next verification method if this fails
+
+#         # If symbolic verification failed, try string matching
+#         if reward == 0.0:
+#             try:
+#                 # Extract answer from solution if it has think/answer tags
+#                 sol_match = re.search(r'<answer>(.*?)</answer>', sol)
+#                 ground_truth = sol_match.group(1).strip() if sol_match else sol.strip()
+                
+#                 # Extract answer from content if it has think/answer tags
+#                 content_match = re.search(r'<answer>(.*?)</answer>', content)
+#                 student_answer = content_match.group(1).strip() if content_match else content.strip()
+                
+#                 ground_truth = ground_truth.replace(' ','').replace('_','').lower()
+#                 student_answer = student_answer.replace(' ','').replace('_','').lower()
+
+#                 # Compare the extracted answers
+#                 if ground_truth in student_answer or student_answer in ground_truth:
+#                     reward = 1.0
+#             except Exception:
+#                 pass  # Keep reward as 0.0 if both methods fail
+                
+#         rewards.append(reward)
+#         # import pdb; pdb.set_trace()
+#         if os.getenv("DEBUG_MODE") == "true":
+#             log_path = os.getenv("LOG_PATH")
+#             # local_rank = int(os.getenv("LOCAL_RANK", 0))
+#             with open(log_path, "a") as f:
+#                 f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
+#                 f.write(f"content: {content}\n")
+#                 f.write(f"sol: {sol}\n")
+#     return rewards
+
+
+def _format_score(content: str) -> float:
+    has_think  = re.search(r'<think>.*?</think>', content, flags=re.DOTALL|re.IGNORECASE) is not None
+    has_answer = re.search(r'<answer>\s*(yes|no)\s*</answer>', content, flags=re.DOTALL|re.IGNORECASE) is not None
+    if has_think and has_answer:
+        return 1.0
+    elif has_answer:
+        return float(os.getenv("ONLY_ANSWER_WEIGHT", "0.3"))
+    else:
+        return 0.0
+
 def accuracy_reward(completions, solution, **kwargs):
-    """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
     contents = [completion[0]["content"] for completion in completions]
     rewards = []
     current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
     for content, sol in zip(contents, solution):
-        reward = 0.0
-        # Try symbolic verification first
+        content = _coerce_think_block(content)
+
+        base = 0.0
         try:
             answer = parse(content)
             if float(verify(answer, parse(sol))) > 0:
-                reward = 1.0
+                base = 1.0
         except Exception:
-            pass  # Continue to next verification method if this fails
+            pass
 
-        # If symbolic verification failed, try string matching
-        if reward == 0.0:
+        if base == 0.0:
             try:
-                # Extract answer from solution if it has think/answer tags
                 sol_match = re.search(r'<answer>(.*?)</answer>', sol)
                 ground_truth = sol_match.group(1).strip() if sol_match else sol.strip()
-                
-                # Extract answer from content if it has think/answer tags
                 content_match = re.search(r'<answer>(.*?)</answer>', content)
                 student_answer = content_match.group(1).strip() if content_match else content.strip()
-                
                 ground_truth = ground_truth.replace(' ','').replace('_','').lower()
                 student_answer = student_answer.replace(' ','').replace('_','').lower()
-
-                # Compare the extracted answers
                 if ground_truth in student_answer or student_answer in ground_truth:
-                    reward = 1.0
+                    base = 1.0
             except Exception:
-                pass  # Keep reward as 0.0 if both methods fail
-                
+                pass
+
+        fmt = _format_score(content)
+        reward = base * fmt
         rewards.append(reward)
-        # import pdb; pdb.set_trace()
+
         if os.getenv("DEBUG_MODE") == "true":
             log_path = os.getenv("LOG_PATH")
-            # local_rank = int(os.getenv("LOCAL_RANK", 0))
             with open(log_path, "a") as f:
                 f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
                 f.write(f"content: {content}\n")
                 f.write(f"sol: {sol}\n")
+                f.write(f"format_score: {fmt}\n")
     return rewards
 
+
+def _coerce_think_block(content: str) -> str:
+    # If there is no <think>... </think> but there is <answer>... </answer>, automatically wrap the preceding text in <think> tags.
+    ans = re.search(r'<answer>.*?</answer>', content, flags=re.DOTALL|re.IGNORECASE)
+    think = re.search(r'<think>.*?</think>', content, flags=re.DOTALL|re.IGNORECASE)
+    if ans and not think:
+        pre = content[:ans.start()].strip()
+        rest = content[ans.start():]
+        if pre:
+            content = f"<think>{pre}</think>\n{rest}"
+    return content
+
+
 def format_reward(completions, **kwargs):
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
-    # pattern = r"^\s*<think>.*?</think>\s*<answer>.*?</answer>\s*$"
     completion_contents = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, content) for content in completion_contents]
-    # matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
-    return [1.0 if match else 0.0 for match in matches]
+    rewards = []
+    only_answer_weight = float(os.getenv("ONLY_ANSWER_WEIGHT", "0.3"))  
+    for content in completion_contents:
+        coerced = _coerce_think_block(content)
+        has_think = re.search(r'<think>.*?</think>', coerced, flags=re.DOTALL|re.IGNORECASE) is not None
+        has_answer = re.search(r'<answer>\s*(yes|no)\s*</answer>', coerced, flags=re.DOTALL|re.IGNORECASE) is not None
+
+        if has_think and has_answer:
+            rewards.append(1.0)
+        elif has_answer:
+            rewards.append(only_answer_weight)
+        else:
+            rewards.append(0.0)
+    return rewards
+
+
+
+# def format_reward(completions, **kwargs):
+#     """Reward function that checks if the completion has a specific format."""
+#     pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
+#     completion_contents = [completion[0]["content"] for completion in completions]
+#     # matches = [re.match(pattern, content) for content in completion_contents]
+#     matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
+#     return [1.0 if match else 0.0 for match in matches]
+
+
 
 reward_funcs_registry = {
     "accuracy": accuracy_reward,
@@ -135,26 +221,44 @@ def main(script_args, training_args, model_args):
 
 
     # Format into conversation
+    # def make_conversation(example):
+    #     return {
+    #         "prompt": [
+    #             {"role": "system",
+    #             "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+    #             {"role": "user",
+    #             "content": [{"type": "text", "text": example["problem"]}]},
+    #         ],
+    #     }
     def make_conversation(example):
         return {
             "prompt": [
-                {"role": "system",
-                "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
-                {"role": "user",
-                "content": [{"type": "text", "text": example["problem"]}]},
+                {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+                {"role": "user", "content": [{"type": "text", "text": example["problem"]}]},
+                {"role": "assistant", "content": [{"type": "text", "text": "<think>"}]},
             ],
         }
+
+
+    # def make_conversation_image(example):
+    #     return {
+    #         "prompt": [
+    #             {"role": "system",
+    #             "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+    #             {"role": "user",
+    #             "content": [
+    #                 {"type": "image"},  
+    #                 {"type": "text", "text": example["problem"]},
+    #             ]},
+    #         ],
+    #     }
 
     def make_conversation_image(example):
         return {
             "prompt": [
-                {"role": "system",
-                "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
-                {"role": "user",
-                "content": [
-                    {"type": "image"},  
-                    {"type": "text", "text": example["problem"]},
-                ]},
+                {"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
+                {"role": "user", "content": [{"type": "image"}, {"type": "text", "text": example["problem"]}]},
+                {"role": "assistant", "content": [{"type": "text", "text": "<think>"}]},
             ],
         }
 
@@ -200,3 +304,4 @@ if __name__ == "__main__":
     parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))
     script_args, training_args, model_args = parser.parse_args_and_config()
     main(script_args, training_args, model_args)
+    torch.cuda.empty_cache()
