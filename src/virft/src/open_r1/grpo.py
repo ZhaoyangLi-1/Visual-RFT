@@ -350,15 +350,12 @@ def accuracy_reward_confidence(completions, solution, **kwargs):
 
 
 def format_reward(completions, **kwargs):
-    """Reward function that checks whether the model emits the required tags.
-
-    Use a tolerant regex that searches within the string rather than requiring
-    the whole output to exactly match. This prevents systematic zeros caused by
-    trailing newlines or boilerplate text around the tags.
-    """
+    """Reward function that checks if the completion has a specific format."""
     pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
-    completion_contents = [completion[0]["content"].strip() for completion in completions]
-    matches = [re.search(pattern, content, re.DOTALL) for content in completion_contents]
+    # pattern = r"<answer>.*?</answer>"
+    completion_contents = [completion[0]["content"] for completion in completions]
+    # matches = [re.match(pattern, content) for content in completion_contents]
+    matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
     return [1.0 if match else 0.0 for match in matches]
 
 ###  reward registry three parts
@@ -371,10 +368,8 @@ reward_funcs_registry = {
 SYSTEM_PROMPT = (
     "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
     "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
-    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively.\n\n"
-    "Example: \n"
-    "User: 2+2 equals what?\n"
-    "Assistant: <think>I first calculate 2+2, the result is 4.</think><answer>4</answer>"
+    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., "
+    "<think> reasoning process here </think><answer> answer here </answer>"
 )
 
 
@@ -396,30 +391,18 @@ def main(script_args, training_args, model_args):
             "prompt": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": example["problem"]},
-                {"role": "assistant", "content": "<think>"},
             ],
         }
 
     def make_conversation_image(example):
-        # Add the system instruction for image prompts so the formatting rule
-        # is explicitly requested from the model. Keep message "content" values
-        # as lists of blocks to avoid mixing different PyArrow types.
         return {
             "prompt": [
-                {
-                    "role": "system",
-                    "content": [{"type": "text", "text": SYSTEM_PROMPT}],
-                },
                 {
                     "role": "user",
                     "content": [
                         {"type": "image"},
                         {"type": "text", "text": example["problem"]},
                     ],
-                },
-                {
-                    "role": "assistant",
-                    "content": [{"type": "text", "text": "<think>"}],
                 },
             ],
         }
