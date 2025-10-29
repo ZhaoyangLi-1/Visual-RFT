@@ -256,9 +256,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         self.generation_config = GenerationConfig(
             max_new_tokens=self.max_completion_length,
             do_sample=True,
-            temperature=1,
-            # top_p=0.95,
-            # top_k=40,
+            temperature=1,  # HACK
             num_return_sequences=self.num_generations,
             pad_token_id=pad_token_id,
         )
@@ -414,9 +412,11 @@ class Qwen2VLGRPOTrainer(Trainer):
         pixel_values = prompt_inputs["pixel_values"].repeat(self.num_generations, 1)
         image_grid_thw = prompt_inputs["image_grid_thw"].repeat_interleave(self.num_generations, dim=0)
 
+        # policy per-token logp
         per_token_logps = self._get_per_token_logps(model, prompt_completion_ids, attention_mask, pixel_values, image_grid_thw)
         per_token_logps = per_token_logps[:, prompt_length - 1 :]
 
+        # reference per-token logp
         with torch.inference_mode():
             if self.ref_model is not None:
                 ref_per_token_logps = self._get_per_token_logps(self.ref_model, prompt_completion_ids, attention_mask, pixel_values, image_grid_thw)
@@ -425,6 +425,7 @@ class Qwen2VLGRPOTrainer(Trainer):
                     ref_per_token_logps = self._get_per_token_logps(model, prompt_completion_ids, attention_mask, pixel_values, image_grid_thw)
         ref_per_token_logps = ref_per_token_logps[:, prompt_length - 1 :]
 
+        # per-token KL (already correct)
         per_token_kl = torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
 
         completions = self.processing_class.batch_decode(completion_ids, skip_special_tokens=True)
@@ -433,6 +434,7 @@ class Qwen2VLGRPOTrainer(Trainer):
 
         prompts = [prompt for prompt in prompts for _ in range(self.num_generations)]
 
+        # rewards
         rewards_per_func = torch.zeros(len(prompts), len(self.reward_funcs), device=device)
         for i, (reward_func, reward_processing_class) in enumerate(
             zip(self.reward_funcs, self.reward_processing_classes)
@@ -457,20 +459,41 @@ class Qwen2VLGRPOTrainer(Trainer):
                 output_reward_func = reward_func(prompts=prompts, completions=completions, **reward_kwargs)
                 rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device)
 
-        rewards = rewards_per_func.sum(dim=1)
+        rewards = rewards_per_func.sum(dim=1)  # [B*G]
 
-        mean_grouped_rewards = rewards.view(-1, self.num_generations).mean(dim=1)
-        std_grouped_rewards = rewards.view(-1, self.num_generations).std(dim=1)
+        # =========================
+        # GRPO advantages + loss
+        # =========================
+        assert self.num_generations >= 2, f"GRPO needs num_generations>=2, got {self.num_generations}"
 
-        mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
-        std_grouped_rewards = std_grouped_rewards.repeat_interleave(self.num_generations, dim=0)
-        advantages = (rewards - mean_grouped_rewards) / (std_grouped_rewards + 1e-4)
+        # group normalize advantages (stop grad)
+        grouped_rewards = rewards.view(-1, self.num_generations)                    # [B, G]
+        mean_grouped_rewards = grouped_rewards.mean(dim=1, keepdim=True)           # [B, 1]
+        std_grouped_rewards = grouped_rewards.std(dim=1, keepdim=True).clamp_min(1e-4)
+        advantages_group = ((grouped_rewards - mean_grouped_rewards) / std_grouped_rewards).detach()  # [B, G]
+        advantages = advantages_group.view(-1)                                      # [B*G]
 
-        per_token_loss = torch.exp(per_token_logps - per_token_logps.detach()) * advantages.unsqueeze(1)
-        per_token_loss = -(per_token_loss - self.beta * per_token_kl)
-        loss = ((per_token_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        # masks/counts over completion tokens
+        comp_mask_int = completion_mask  # [B*G, T] int
+        comp_mask = comp_mask_int.to(per_token_logps.dtype)                         # float mask
+        tok_counts = comp_mask.sum(dim=1).clamp_min(1.0)                            # [B*G]
 
-        completion_length = self.accelerator.gather_for_metrics(completion_mask.sum(1)).float().mean().item()
+        # correct ratio w.r.t. reference policy
+        log_ratio = (per_token_logps - ref_per_token_logps)                         # [B*G, T]
+        ratio = torch.exp(log_ratio).clamp_max(100.0)                                # [B*G, T]
+
+        # mean over completion tokens
+        ratio_mean_over_tokens = (ratio * comp_mask).sum(dim=1) / tok_counts        # [B*G]
+        kl_mean_over_tokens = (per_token_kl * comp_mask).sum(dim=1) / tok_counts    # [B*G]
+
+        # final loss: -(ratio * A) + beta * KL
+        loss_vec = -(ratio_mean_over_tokens * advantages) + self.beta * kl_mean_over_tokens
+        loss = loss_vec.mean()
+
+        # =========================
+        # metrics (for logging)
+        # =========================
+        completion_length = self.accelerator.gather_for_metrics(tok_counts).float().mean().item()
         self._metrics["completion_length"].append(completion_length)
 
         reward_per_func = self.accelerator.gather_for_metrics(rewards_per_func).mean(0)
@@ -482,10 +505,24 @@ class Qwen2VLGRPOTrainer(Trainer):
             self._metrics[f"rewards/{reward_func_name}"].append(reward_per_func[i].item())
 
         self._metrics["reward"].append(self.accelerator.gather_for_metrics(rewards).mean().item())
-        self._metrics["reward_std"].append(self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item())
+        self._metrics["reward_std"].append(
+            self.accelerator.gather_for_metrics(std_grouped_rewards).mean().item()
+        )
 
-        mean_kl = ((per_token_kl * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)).mean()
+        mean_kl = ((per_token_kl * comp_mask).sum(dim=1) / tok_counts).mean()
         self._metrics["kl"].append(self.accelerator.gather_for_metrics(mean_kl).mean().item())
+
+        # extra sanity metrics
+        with torch.no_grad():
+            self._metrics["adv_abs_mean"].append(
+                self.accelerator.gather_for_metrics(advantages.abs()).mean().item()
+            )
+            self._metrics["ratio_mean"].append(
+                self.accelerator.gather_for_metrics(ratio_mean_over_tokens).mean().item()
+            )
+            self._metrics["num_valid_tokens"].append(
+                float(self.accelerator.gather_for_metrics(tok_counts).mean().item())
+            )
 
         return loss
 

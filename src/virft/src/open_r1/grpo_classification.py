@@ -18,9 +18,6 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import Optional
 
-from datasets import load_dataset, load_from_disk
-from transformers import Qwen2VLForConditionalGeneration
-
 from math_verify import parse, verify
 # from open_r1.trainer import Qwen2VLGRPOTrainer
 from open_r1.trainer import Qwen2VLGRPOTrainer, Qwen2VLGRPOVLLMTrainer
@@ -52,59 +49,146 @@ class GRPOScriptArguments(ScriptArguments):
     )
 
 
-def accuracy_reward(completions, solution, **kwargs):
-    """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
-    contents = [completion[0]["content"] for completion in completions]
-    rewards = []
-    current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
-    for content, sol in zip(contents, solution):
-        reward = 0.0
-        # Try symbolic verification first
-        try:
-            answer = parse(content)
-            if float(verify(answer, parse(sol))) > 0:
-                reward = 1.0
-        except Exception:
-            pass  # Continue to next verification method if this fails
+def _join_completion(completion):
+    if isinstance(completion, str):
+        return completion
+    if isinstance(completion, list):
+        parts = []
+        for x in completion:
+            if isinstance(x, dict) and "content" in x and isinstance(x["content"], str):
+                parts.append(x["content"])
+            elif isinstance(x, str):
+                parts.append(x)
+        return "".join(parts)
+    return str(completion)
 
-        # If symbolic verification failed, try string matching
-        if reward == 0.0:
-            try:
-                # Extract answer from solution if it has think/answer tags
-                sol_match = re.search(r'<answer>(.*?)</answer>', sol)
-                ground_truth = sol_match.group(1).strip() if sol_match else sol.strip()
-                
-                # Extract answer from content if it has think/answer tags
-                content_match = re.search(r'<answer>(.*?)</answer>', content)
-                student_answer = content_match.group(1).strip() if content_match else content.strip()
-                
-                ground_truth = ground_truth.replace(' ','').replace('_','').lower()
-                student_answer = student_answer.replace(' ','').replace('_','').lower()
-
-                # Compare the extracted answers
-                if ground_truth in student_answer or student_answer in ground_truth:
-                    reward = 1.0
-            except Exception:
-                pass  # Keep reward as 0.0 if both methods fail
-                
-        rewards.append(reward)
-        # import pdb; pdb.set_trace()
-        if os.getenv("DEBUG_MODE") == "true":
-            log_path = os.getenv("LOG_PATH")
-            # local_rank = int(os.getenv("LOCAL_RANK", 0))
-            with open(log_path, "a") as f:
-                f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
-                f.write(f"content: {content}\n")
-                f.write(f"sol: {sol}\n")
-    return rewards
 
 def format_reward(completions, **kwargs):
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
-    completion_contents = [completion[0]["content"] for completion in completions]
-    # matches = [re.match(pattern, content) for content in completion_contents]
-    matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
-    return [1.0 if match else 0.0 for match in matches]
+    pattern = r"^\s*<REASONING>[\s\S]*?</REASONING>\s*<SOLUTION>[\s\S]*?</SOLUTION>\s*$"
+    scores = []
+    for completion in completions:
+        content = _join_completion(completion)
+
+        ok = bool(re.fullmatch(pattern, content))
+        score = 1.0 if ok else 0.0
+
+        if ok:
+            if len(re.findall(r"</SOLUTION>", content)) != 1 or len(re.findall(r"</REASONING>", content)) != 1:
+                score = 0.0
+
+        scores.append(float(score))
+    return scores
+
+
+def accuracy_reward(completions, solution, **kwargs):
+    rewards = []
+    current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
+
+    def _extract_answer(text):
+        m = re.search(r"<SOLUTION>([\s\S]*?)</SOLUTION>", text, flags=re.DOTALL | re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        cand = re.findall(r"\b(yes|no)\b", text, flags=re.IGNORECASE)
+        return cand[-1].strip() if cand else text.strip()
+
+    for completion, sol in zip(completions, solution):
+        content = _join_completion(completion)
+        gt = _extract_answer(sol).replace(" ", "").replace("_", "").lower()
+        pred = _extract_answer(content).replace(" ", "").replace("_", "").lower()
+
+        if pred not in ("yes", "no"):
+            reward = 0.0
+        else:
+            reward = 1.0 if pred == gt else 0.0
+
+        rewards.append(float(reward))
+
+        if os.getenv("DEBUG_MODE") == "true":
+            log_path = os.getenv("LOG_PATH")
+            with open(log_path, "a") as f:
+                f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
+                f.write(f"content(repr): {repr(content)}\n")
+                f.write(f"pred: {pred} | gt: {gt}\n")
+    return rewards
+
+
+# def accuracy_reward(completions, solution, **kwargs):
+#     """Reward function that checks if the completion is correct using either symbolic verification or exact string matching."""
+#     contents = [completion[0]["content"] for completion in completions]
+#     rewards = []
+#     current_time = datetime.now().strftime("%d-%H-%M-%S-%f")
+#     for content, sol in zip(contents, solution):
+#         reward = 0.0
+#         # Try symbolic verification first
+#         try:
+#             answer = parse(content)
+#             if float(verify(answer, parse(sol))) > 0:
+#                 reward = 1.0
+#         except Exception:
+#             pass  # Continue to next verification method if this fails
+
+#         # If symbolic verification failed, try string matching
+#         if reward == 0.0:
+#             try:
+#                 # Extract answer from solution if it has think/answer tags
+#                 sol_match = re.search(r'<SOLUTION>(.*?)</SOLUTION>', sol)
+#                 ground_truth = sol_match.group(1).strip() if sol_match else sol.strip()
+                
+#                 # Extract answer from content if it has think/answer tags
+#                 content_match = re.search(r'<SOLUTION>(.*?)</SOLUTION>', content)
+#                 student_answer = content_match.group(1).strip() if content_match else content.strip()
+                
+#                 ground_truth = ground_truth.replace(' ','').replace('_','').lower()
+#                 student_answer = student_answer.replace(' ','').replace('_','').lower()
+
+#                 # Compare the extracted answers
+#                 if ground_truth in student_answer or student_answer in ground_truth:
+#                     reward = 1.0
+#             except Exception:
+#                 pass  # Keep reward as 0.0 if both methods fail
+                
+#         rewards.append(reward)
+#         # import pdb; pdb.set_trace()
+#         if os.getenv("DEBUG_MODE") == "true":
+#             log_path = os.getenv("LOG_PATH")
+#             # local_rank = int(os.getenv("LOCAL_RANK", 0))
+#             with open(log_path, "a") as f:
+#                 f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
+#                 f.write(f"content: {content}\n")
+#                 f.write(f"sol: {sol}\n")
+#     return rewards
+
+# def format_reward(completions, **kwargs):
+#     """Reward function that checks if the completion has a specific format."""
+#     pattern = r"<REASONING>.*?</REASONING>\s*<SOLUTION>.*?</SOLUTION>"
+#     completion_contents = [completion[0]["content"] for completion in completions]
+#     # matches = [re.match(pattern, content) for content in completion_contents]
+#     matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
+#     return [1.0 if match else 0.0 for match in matches]
+
+
+# def format_reward(completions, **kwargs): 
+#     pattern = r"<REASONING>.*?</REASONING>\s*<SOLUTION>.*?</SOLUTION>"
+#     completion_contents = [
+#         completion[0]["content"] if isinstance(completion, list) and completion and isinstance(completion[0], dict) and "content" in completion[0]
+#         else str(completion)  # fallback if different structure appears
+#         for completion in completions
+#     ]
+
+#     scores = []
+#     for content in completion_contents:
+#         match = re.fullmatch(pattern, content, re.DOTALL)
+#         score = 1.0 if match else 0.0
+
+#         if len(content) != 0:
+#             removal = content.replace("\n", "")
+#             if (len(content) - len(removal)) / len(content) >= 0.5:
+#                 score -= 2.0
+
+#         scores.append(float(score))
+
+#     return scores
+
 
 reward_funcs_registry = {
     "accuracy": accuracy_reward,
@@ -114,8 +198,8 @@ reward_funcs_registry = {
 SYSTEM_PROMPT = (
     "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant "
     "first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning "
-    "process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., "
-    "<think> reasoning process here </think><answer> answer here </answer>"
+    "process and answer are enclosed within <REASONING> </REASONING> and <SOLUTION> </SOLUTION> tags, respectively, i.e., "
+    "<REASONING> reasoning process here </REASONING><SOLUTION> answer here </SOLUTION>"
 )
 
 
