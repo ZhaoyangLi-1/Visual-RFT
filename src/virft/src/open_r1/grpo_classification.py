@@ -255,7 +255,7 @@ def main(script_args, training_args, model_args):
     print("using: ", trainer_cls)
 
 
-    # Initialize the GRPO trainer
+    # # Initialize the GRPO trainer
     trainer = trainer_cls(
         model=model_args.model_name_or_path,
         reward_funcs=reward_funcs,

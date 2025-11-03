@@ -93,6 +93,7 @@ class Qwen2VLGRPOTrainer(Trainer):
         # -------------------------------
         model_init_kwargs = args.model_init_kwargs or {}
         model_init_kwargs["attn_implementation"] = attn_implementation
+        # self.clip_range = float(getattr(args, "clip_range", 0.12))
 
         # >>> MOD: decide dtype from args and enforce for FA2
         desired_dtype = model_init_kwargs.get("torch_dtype", None)
