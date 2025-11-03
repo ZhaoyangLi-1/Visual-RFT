@@ -1,4 +1,4 @@
 __pycache__/
 .vscode/
-debug_log_8b_GRPO_oric.txt
+logs/
 wandb/
